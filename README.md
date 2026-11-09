@@ -38,5 +38,6 @@ To test or access the agent from a browser (including Firefox on an Android phon
 
 1. **500 Internal Server Error**
    Set up billing in `job-app-agent/.env`:
-   ```GOOGLE_CLOUD_PROJECT=<your-project-id>
+   ```bash
+   GOOGLE_CLOUD_PROJECT=<your-project-id>
    ```
