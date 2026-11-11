@@ -77,7 +77,7 @@ Edit your agent logic in `app/agent.py` and test with `agents-cli playground` - 
 
 ```bash
 gcloud config set project <your-project-id>
-agents-cli deploy
+agents-cli deploy --no-confirm-project
 ```
 
 To add CI/CD and Terraform, run `agents-cli scaffold enhance`.
