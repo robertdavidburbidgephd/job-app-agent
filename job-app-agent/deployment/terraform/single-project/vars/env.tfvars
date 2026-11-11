@@ -5,4 +5,4 @@ project_name = "job-app-agent"
 project_id = "weather-assistant-500219"
 
 # The Google Cloud region you will use to deploy the infrastructure
-region = "us-east1"
+region = "europe-west4"
