@@ -1,7 +1,7 @@
 name: job-app-agent
 acli_version: 1.13.0
 agent_directory: app
-region: us-east1
+region: europe-west4
 base_template: adk
 generated_at: '2026-07-24T06:46:12.667015+00:00'
 language: python
