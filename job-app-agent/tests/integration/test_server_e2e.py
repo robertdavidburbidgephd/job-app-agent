@@ -25,15 +25,6 @@ from typing import Any
 
 import pytest
 import requests
-from a2a.types import (
-    Message,
-    MessageSendParams,
-    Part,
-    Role,
-    SendStreamingMessageRequest,
-    SendStreamingMessageResponse,
-    TextPart,
-)
 from requests.exceptions import RequestException
 
 # Configure logging
@@ -172,46 +163,46 @@ def test_a2a_chat_stream(server_fixture: subprocess.Popen[str]) -> None:
     """Test the A2A route using the JSON-RPC streaming protocol."""
     logger.info("Starting A2A chat stream test")
 
-    message = Message(
-        message_id=f"msg-user-{uuid.uuid4()}",
-        role=Role.user,
-        parts=[Part(root=TextPart(text="Hi!"))],
-    )
-    request = SendStreamingMessageRequest(
-        id="test-req-001",
-        params=MessageSendParams(message=message),
-    )
+    request_data = {
+        "jsonrpc": "2.0",
+        "id": "test-req-001",
+        "method": "SendStreamingMessage",
+        "params": {
+            "message": {
+                "messageId": f"msg-user-{uuid.uuid4()}",
+                "role": "ROLE_USER",
+                "parts": [{"text": "Hi!"}],
+            }
+        },
+    }
+    headers = {**HEADERS, "A2A-Version": "1.0"}
     response = requests.post(
         A2A_RPC_URL,
-        headers=HEADERS,
-        json=request.model_dump(mode="json", exclude_none=True),
+        headers=headers,
+        json=request_data,
         stream=True,
         timeout=60,
     )
     assert response.status_code == 200
 
-    responses: list[SendStreamingMessageResponse] = []
+    events: list[dict[str, Any]] = []
     for line in response.iter_lines():
         if line:
             line_str = line.decode("utf-8")
             if line_str.startswith("data: "):
-                responses.append(
-                    SendStreamingMessageResponse.model_validate(
-                        json.loads(line_str[6:])
-                    )
-                )
+                events.append(json.loads(line_str[6:]))
 
-    assert responses, "No responses received from stream"
+    assert events, "No responses received from stream"
 
-    final_responses = [
-        r.root
-        for r in responses
-        if hasattr(r.root, "result")
-        and hasattr(r.root.result, "final")
-        and r.root.result.final is True
+    final_states = [
+        event["result"]["statusUpdate"]["status"]["state"]
+        for event in events
+        if "result" in event
+        and "statusUpdate" in event["result"]
+        and "status" in event["result"]["statusUpdate"]
+        and "state" in event["result"]["statusUpdate"]["status"]
     ]
-    assert final_responses, "No final response received"
-    assert final_responses[-1].result.status.state == "completed"
+    assert "TASK_STATE_COMPLETED" in final_states
 
 
 def test_agent_card(server_fixture: subprocess.Popen[str]) -> None:
@@ -220,8 +211,16 @@ def test_agent_card(server_fixture: subprocess.Popen[str]) -> None:
     assert response.status_code == 200, f"A2A endpoint returned {response.status_code}"
 
     served_agent_card = response.json()
-    for field in ("name", "description", "skills", "capabilities", "url", "version"):
+    for field in (
+        "name",
+        "description",
+        "skills",
+        "capabilities",
+        "supportedInterfaces",
+        "version",
+    ):
         assert field in served_agent_card, f"Missing field in agent card: {field}"
+    assert served_agent_card["supportedInterfaces"][0]["url"]
 
 
 def test_collect_feedback(server_fixture: subprocess.Popen[str]) -> None:

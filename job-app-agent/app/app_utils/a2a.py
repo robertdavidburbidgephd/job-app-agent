@@ -25,14 +25,15 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING
 
-from a2a.server.apps import A2AFastAPIApplication
 from a2a.server.request_handlers import DefaultRequestHandler
+from a2a.server.routes import (
+    add_a2a_routes_to_fastapi,
+    create_agent_card_routes,
+    create_jsonrpc_routes,
+)
 from a2a.server.tasks import TaskStore
 from a2a.types import AgentCapabilities, AgentExtension
-from a2a.utils.constants import (
-    AGENT_CARD_WELL_KNOWN_PATH,
-    EXTENDED_AGENT_CARD_PATH,
-)
+from a2a.utils.constants import AGENT_CARD_WELL_KNOWN_PATH
 from google.adk.a2a.executor.a2a_agent_executor import A2aAgentExecutor
 from google.adk.a2a.utils.agent_card_builder import AgentCardBuilder
 
@@ -84,7 +85,9 @@ async def attach_a2a_routes(
     """
     resolved_app_url = app_url or os.getenv("APP_URL", "http://0.0.0.0:8000")
     resolved_agent_version = agent_version or os.getenv("AGENT_VERSION", "0.1.0")
-    resolved_capabilities = capabilities or _default_capabilities()
+    resolved_capabilities = (
+        capabilities if capabilities is not None else _default_capabilities()
+    )
 
     agent_card = await AgentCardBuilder(
         agent=agent,
@@ -96,12 +99,22 @@ async def attach_a2a_routes(
     request_handler = DefaultRequestHandler(
         agent_executor=A2aAgentExecutor(runner=runner),
         task_store=task_store,
+        agent_card=agent_card,
     )
 
-    a2a_app = A2AFastAPIApplication(agent_card=agent_card, http_handler=request_handler)
-    a2a_app.add_routes_to_app(
-        app,
-        agent_card_url=f"{rpc_path}{AGENT_CARD_WELL_KNOWN_PATH}",
+    card_url = (
+        f"{rpc_path.rstrip('/')}{AGENT_CARD_WELL_KNOWN_PATH}"
+        if rpc_path.rstrip("/")
+        else AGENT_CARD_WELL_KNOWN_PATH
+    )
+    agent_card_routes = create_agent_card_routes(agent_card, card_url=card_url)
+    jsonrpc_routes = create_jsonrpc_routes(
+        request_handler,
         rpc_url=rpc_path,
-        extended_agent_card_url=f"{rpc_path}{EXTENDED_AGENT_CARD_PATH}",
+        enable_v0_3_compat=True,
+    )
+    add_a2a_routes_to_fastapi(
+        app,
+        agent_card_routes=agent_card_routes,
+        jsonrpc_routes=jsonrpc_routes,
     )
