@@ -108,9 +108,14 @@ async def attach_a2a_routes(
         else AGENT_CARD_WELL_KNOWN_PATH
     )
     agent_card_routes = create_agent_card_routes(agent_card, card_url=card_url)
+    clean_rpc = rpc_path.rstrip("/")
     jsonrpc_routes = create_jsonrpc_routes(
         request_handler,
-        rpc_url=rpc_path,
+        rpc_url=clean_rpc,
+        enable_v0_3_compat=True,
+    ) + create_jsonrpc_routes(
+        request_handler,
+        rpc_url=f"{clean_rpc}/",
         enable_v0_3_compat=True,
     )
     add_a2a_routes_to_fastapi(

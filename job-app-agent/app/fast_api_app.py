@@ -22,6 +22,7 @@ import google.auth
 from a2a.server.tasks import InMemoryTaskStore
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.staticfiles import StaticFiles
 from google.adk.cli.fast_api import get_fast_api_app
 from google.adk.runners import Runner
 from google.cloud import logging as google_cloud_logging
@@ -62,12 +63,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         task_store=InMemoryTaskStore(),
         rpc_path=f"/a2a/{adk_app.name}",
     )
+
+    # Mount static files for the React web-ui frontend (after all API & A2A routes)
+    static_dir = os.path.join(AGENT_DIR, "static")
+    if os.path.isdir(static_dir):
+        app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
+
     yield
 
 
 app: FastAPI = get_fast_api_app(
     agents_dir=AGENT_DIR,
-    web=True,
+    web=False,
     artifact_service_uri=services.ARTIFACT_SERVICE_URI,
     allow_origins=allow_origins,
     session_service_uri=services.SESSION_SERVICE_URI,
